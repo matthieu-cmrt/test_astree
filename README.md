@@ -1,15 +1,6 @@
 # test_astree
 
 ```js
-/* =====================================================================
-   maj_membres v2 — page "Associés / Participants"
-   Pour chaque personne du CSV : recherche dans la liste, clic sur le nom,
-   clic sur "Modifier la fiche", activation des changements, mise à jour, enregistrement.
-   Champs pris en charge (selon les colonnes présentes dans le CSV) :
-   Genre, Date de naissance, Section de vote, Titulaire / suppléant. Email = vérification.
-   À coller TEL QUEL dans la console (F12) sur la page des participants :
-   une fenêtre s'ouvre ensuite pour coller le CSV.
-   ===================================================================== */
 (async () => {
 
   /* ---------- 1. LE CSV ----------
@@ -64,6 +55,7 @@
     TOUTES_LES_LIGNES: true, // si plusieurs participants portent le même nom, les traiter tous (l'e-mail départage)
     DELAI: 500,            // pause (ms) entre les actions
     PAUSE_VISUELLE: 1500,  // temps (ms) pour voir les contours vert/orange avant d'enregistrer
+    GENRE_ONGLET_AUTRES: false, // false = le genre n'est corrigé QUE sur la fiche membre (onglet "Autres" non touché)
   };
 
   /* ---------- Outils ---------- */
@@ -507,7 +499,9 @@
 
     // Onglet "Autres (référentiels, ...)" — et PAS "Autres rôles (invité, CAC...)"
     // Seulement si au moins un champ de cet onglet est à vérifier pour cette personne
-    if (d.genre || d.sectionVote || d.titulaire) {
+    // (le genre n'y est traité que si GENRE_ONGLET_AUTRES = true)
+    const genreAutres = d.genre && CONFIG.GENRE_ONGLET_AUTRES;
+    if (genreAutres || d.sectionVote || d.titulaire) {
       const onglet = [...document.querySelectorAll('a.nav-item')]
         .find(a => visible(a) && norm(a.textContent).startsWith('autres (referentiels'));
       if (!onglet) { res.statut = '❌ Onglet "Autres" introuvable'; await fermerModale(); return; }
@@ -521,7 +515,7 @@
       }
 
       // Champ GENRE de l'onglet "Autres" (texte libre)
-      if (d.genre) {
+      if (genreAutres) {
         const inGenreAutres = await attendre(() => champ('GENRE'), d.sectionVote || d.titulaire ? 1000 : 5000);
         if (inGenreAutres) {
           const avant = inGenreAutres.value || '∅';
@@ -543,7 +537,7 @@
         if (!remplir(inTitulaire, d.titulaire)) { modifie = true; res.titulaire = `${avantTit} → ${d.titulaire}`; }
         else res.titulaire = 'OK';
       } else res.titulaire = '–';
-    }
+    } else { res.genreAutres = '–'; res.section = '–'; res.titulaire = '–'; }
 
     await sleep(Math.max(CONFIG.DELAI, CONFIG.PAUSE_VISUELLE)); // le temps de voir les couleurs
 
@@ -702,4 +696,5 @@
   }
 
   console.table(resultats.map(({ _d, ...r }) => r));
-})();```
+})();
+```
