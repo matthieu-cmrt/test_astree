@@ -1,6 +1,15 @@
 # test_astree
 
 ```js
+/* =====================================================================
+   maj_membres v2 — page "Associés / Participants"
+   Pour chaque personne du CSV : recherche dans la liste, clic sur le nom,
+   clic sur "Modifier la fiche", activation des changements, mise à jour, enregistrement.
+   Champs pris en charge (selon les colonnes présentes dans le CSV) :
+   Genre, Date de naissance, Section de vote, Titulaire / suppléant. Email = vérification.
+   À coller TEL QUEL dans la console (F12) sur la page des participants :
+   une fenêtre s'ouvre ensuite pour coller le CSV.
+   ===================================================================== */
 (async () => {
 
   /* ---------- 1. LE CSV ----------
@@ -55,6 +64,7 @@
     TOUTES_LES_LIGNES: true, // si plusieurs participants portent le même nom, les traiter tous (l'e-mail départage)
     DELAI: 500,            // pause (ms) entre les actions
     PAUSE_VISUELLE: 1500,  // temps (ms) pour voir les contours vert/orange avant d'enregistrer
+    ESPACE_EMAIL_ASSISTANT: true, // true = met un espace " " dans "Email assistant" s'il est vide (avant d'enregistrer)
     GENRE_ONGLET_AUTRES: false, // false = le genre n'est corrigé QUE sur la fiche membre (onglet "Autres" non touché)
   };
 
@@ -103,7 +113,19 @@
   function champEmail() {
     for (const lab of document.querySelectorAll('label')) {
       const t = norm(lab.textContent).replace(/\s/g, '');
-      if (!t.startsWith('email') || t.includes('cc')) continue;
+      if (!t.startsWith('email') || t.includes('cc') || t.includes('assistant')) continue;
+      const grp = lab.closest('.form-group, .form-group-default__custom') || lab.parentElement;
+      const el = grp && grp.querySelector('input');
+      if (visible(el)) return el;
+    }
+    return null;
+  }
+
+  // Champ "Email assistant" / "E-mail assistant(e)"
+  function champEmailAssistant() {
+    for (const lab of document.querySelectorAll('label')) {
+      const t = norm(lab.textContent).replace(/\s/g, '');
+      if (!t.startsWith('email') || !t.includes('assistant')) continue;
       const grp = lab.closest('.form-group, .form-group-default__custom') || lab.parentElement;
       const el = grp && grp.querySelector('input');
       if (visible(el)) return el;
@@ -497,6 +519,18 @@
       }
     } else res.naissance = '–';
 
+    // Email assistant : un espace " " s'il est vide (pris en compte seulement si la fiche est enregistrée)
+    if (CONFIG.ESPACE_EMAIL_ASSISTANT) {
+      const inAssist = champEmailAssistant();
+      if (!inAssist) res.emailAssistant = 'champ absent';
+      else if (inAssist.value !== '') { res.emailAssistant = 'déjà rempli'; marquer(inAssist, true); }
+      else {
+        saisir(inAssist, ' ');
+        if (inAssist.value === ' ') { marquer(inAssist, false); res.emailAssistant = 'espace ajouté'; }
+        else res.emailAssistant = '⚠️ espace refusé par le champ';
+      }
+    } else res.emailAssistant = '–';
+
     // Onglet "Autres (référentiels, ...)" — et PAS "Autres rôles (invité, CAC...)"
     // Seulement si au moins un champ de cet onglet est à vérifier pour cette personne
     // (le genre n'y est traité que si GENRE_ONGLET_AUTRES = true)
@@ -617,7 +651,7 @@
       // Jusqu'à 3 essais si la connexion saute pendant la fiche.
       // Sans risque : une fiche déjà enregistrée ressort "Déjà à jour" au nouvel essai.
       for (let essai = 1; essai <= 3; essai++) {
-        res = { ligne, nom: d.nomCsv, role: '', ouverture: '', email: '', genre: '', genreAutres: '', section: '', titulaire: '', naissance: '', statut: '' };
+        res = { ligne, nom: d.nomCsv, role: '', ouverture: '', email: '', genre: '', genreAutres: '', section: '', titulaire: '', naissance: '', emailAssistant: '', statut: '' };
         const coupuresAvant = conn.coupures;
         try {
           if (!(await attendreConnexion())) { res.statut = '❌ Connexion perdue'; break; }
